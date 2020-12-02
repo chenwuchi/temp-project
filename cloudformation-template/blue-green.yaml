@@ -40,17 +40,7 @@ Parameters:
   #   Default:
   #   Description:
 
-  DesiredCapacity:
-    Type: Number
-    Default: "1"
-    Description: "1"
-
-  DesiredTaskCount:
-    Type: Number
-    Default: "1"
-    Description: "1"
-
-  MaxSize:
+  DesiredInstanceCount:
     Type: Number
     Default: "1"
     Description: "1"
@@ -67,10 +57,20 @@ Parameters:
     Default: 359170549571.dkr.ecr.ap-southeast-1.amazonaws.com/sample
     Description: 359170549571.dkr.ecr.ap-southeast-1.amazonaws.com/sample
 
+  ContainerName:
+    Type: String
+    Default: samplecontainer
+    Description: samplecontainer
+
   ContainerPort:
     Type: Number
     Default: 80
     Description: 80
+
+  DesiredTaskCount:
+    Type: Number
+    Default: "2"
+    Description: "2"
 
 Mappings:
   # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html
@@ -230,101 +230,7 @@ Resources:
       RouteTableId: !Ref "PrivateRouteTable"
       SubnetId: !Ref "PrivateSubnet2"
 
-  # Cluster
-  ECSCluster:
-    Type: AWS::ECS::Cluster
-    Properties:
-      ClusterName: sample-cluster
-
-  # Security Group for ALB
-  AlbSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: sample-alb-sg
-      GroupDescription: ALB Security Group
-      VpcId: !Ref "VPC"
-      Tags:
-        - Key: Name
-          Value: sample-alb-sg
-
-  AlbSecurityGroupHTTPinbound:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !Ref "AlbSecurityGroup"
-      IpProtocol: tcp
-      FromPort: "80"
-      ToPort: "80"
-      CidrIp: 0.0.0.0/0
-
-  AlbSecurityGroupHTTPSinbound:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !Ref "AlbSecurityGroup"
-      IpProtocol: tcp
-      FromPort: "443"
-      ToPort: "443"
-      CidrIp: 0.0.0.0/0
-
-  # Security Group for ECS
-  EcsSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: sample-ecs-sg
-      GroupDescription: ECS Security Group
-      VpcId: !Ref "VPC"
-      Tags:
-        - Key: Name
-          Value: sample-ecs-sg
-
-  EcsSecurityGroupHTTPinbound:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !Ref "EcsSecurityGroup"
-      IpProtocol: tcp
-      FromPort: "80"
-      ToPort: "80"
-      CidrIp: 0.0.0.0/0
-
-  EcsSecurityGroupSSHinbound:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !Ref "EcsSecurityGroup"
-      IpProtocol: tcp
-      FromPort: "22"
-      ToPort: "22"
-      CidrIp: 0.0.0.0/0
-
-  EcsSecurityGroupALBports:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !Ref "EcsSecurityGroup"
-      IpProtocol: tcp
-      FromPort: "31000"
-      ToPort: "61000"
-      SourceSecurityGroupId: !Ref "AlbSecurityGroup"
-
-  CloudwatchLogsGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Join ["-", [ECSLogGroup, !Ref "AWS::StackName"]]
-      RetentionInDays: 14
-
-  taskdefinition:
-    Type: AWS::ECS::TaskDefinition
-    Properties:
-      Family: sample-task-definition
-      ContainerDefinitions:
-        - Name: samplecontainer
-          Essential: "true"
-          Image: !Ref "ImagePath"
-          Memory: "500"
-          PortMappings:
-            - ContainerPort: !Ref ContainerPort
-              HostPort: 0
-              Protocol: tcp
-      ExecutionRoleArn: !Ref ECSTaskExecutionRole
-      TaskRoleArn: !Ref ECSTaskExecutionRole
-
+  # Load balancer
   ECSALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -338,31 +244,44 @@ Resources:
         - !Ref "PublicSubnet2"
       SecurityGroups: [!Ref "AlbSecurityGroup"]
 
+  # Init load balancer with blue target group
   ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
-    DependsOn: ECSServiceRole
+    DependsOn:
+      - ECSServiceRole
+      - ECSBlueTG
     Properties:
       DefaultActions:
         - Type: forward
-          TargetGroupArn: !Ref "ECSTG"
+          ForwardConfig:
+            TargetGroups:
+              - TargetGroupArn: !Ref "ECSBlueTG"
+                Weight: 1
       LoadBalancerArn: !Ref "ECSALB"
       Port: "80"
       Protocol: HTTP
 
+  # Init load balancer listener rule with blue target group
   ECSALBListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    DependsOn: ALBListener
+    DependsOn:
+      - ALBListener
+      - ECSBlueTG
     Properties:
       Actions:
         - Type: forward
-          TargetGroupArn: !Ref "ECSTG"
+          ForwardConfig:
+            TargetGroups:
+              - TargetGroupArn: !Ref "ECSBlueTG"
+                Weight: 1
       Conditions:
         - Field: path-pattern
           Values: [/]
       ListenerArn: !Ref "ALBListener"
       Priority: 1
 
-  ECSTG:
+  # Target group
+  ECSBlueTG:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     DependsOn: ECSALB
     Properties:
@@ -371,11 +290,76 @@ Resources:
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
-      Name: sample-ecs-tg
+      Name: sample-blue-tg
       Port: 80
       Protocol: HTTP
       UnhealthyThresholdCount: 2
       VpcId: !Ref "VPC"
+
+  # Target group
+  ECSGreenTG:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: ECSALB
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Name: sample-green-tg
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref "VPC"
+
+  taskdefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: sample-task-definition
+      ContainerDefinitions:
+        - Name: !Ref "ContainerName"
+          Essential: "true"
+          Image: !Ref "ImagePath"
+          Memory: "200"
+          MemoryReservation: "100"
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              HostPort: 0
+              Protocol: tcp
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Ref ECSTaskExecutionRole
+      TaskRoleArn: !Ref ECSTaskExecutionRole
+
+  # Cluster
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: sample-cluster
+
+  ECSService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - ALBListener
+      - ECSAutoScalingGroup
+    Properties:
+      ServiceName: sample-ecs-service
+      Cluster: !Ref "ECSCluster"
+      DesiredCount: !Ref DesiredTaskCount
+      DeploymentController:
+        Type: CODE_DEPLOY
+      LoadBalancers:
+        - ContainerName: !Ref ContainerName
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref "ECSBlueTG"
+      Role: !Ref "ECSServiceRole"
+      TaskDefinition: !Ref "taskdefinition"
+
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: sample-application
+      ComputePlatform: ECS
 
   ECSAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -385,8 +369,8 @@ Resources:
         - !Ref "PublicSubnet2"
       LaunchConfigurationName: !Ref "ContainerInstances"
       MinSize: "1"
-      MaxSize: !Ref "MaxSize"
-      DesiredCapacity: !Ref "DesiredCapacity"
+      MaxSize: !Ref "DesiredInstanceCount"
+      DesiredCapacity: !Ref "DesiredInstanceCount"
 
   ContainerInstances:
     Type: AWS::AutoScaling::LaunchConfiguration
@@ -403,20 +387,7 @@ Resources:
           echo ECS_CLUSTER=${ECSCluster} >> /etc/ecs/ecs.config;
           echo ECS_BACKEND_HOST= >> /etc/ecs/ecs.config;
 
-  service:
-    Type: AWS::ECS::Service
-    DependsOn: ALBListener
-    Properties:
-      ServiceName: sample-ecs-service
-      Cluster: !Ref "ECSCluster"
-      DesiredCount: !Ref DesiredTaskCount
-      LoadBalancers:
-        - ContainerName: samplecontainer
-          ContainerPort: !Ref ContainerPort
-          TargetGroupArn: !Ref "ECSTG"
-      Role: !Ref "ECSServiceRole"
-      TaskDefinition: !Ref "taskdefinition"
-
+  # Roles
   ECSServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -443,32 +414,6 @@ Resources:
                     "ec2:AuthorizeSecurityGroupIngress",
                   ]
                 Resource: "*"
-
-  ServiceScalingTarget:
-    Type: AWS::ApplicationAutoScaling::ScalableTarget
-    DependsOn: service
-    Properties:
-      MaxCapacity: 2
-      MinCapacity: 1
-      ResourceId:
-        !Join ["", [service/, !Ref "ECSCluster", /, !GetAtt [service, Name]]]
-      RoleARN: !GetAtt [AutoscalingRole, Arn]
-      ScalableDimension: ecs:service:DesiredCount
-      ServiceNamespace: ecs
-
-  ServiceScalingPolicy:
-    Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Properties:
-      PolicyName: AStepPolicy
-      PolicyType: StepScaling
-      ScalingTargetId: !Ref "ServiceScalingTarget"
-      StepScalingPolicyConfiguration:
-        AdjustmentType: PercentChangeInCapacity
-        Cooldown: 60
-        MetricAggregationType: Average
-        StepAdjustments:
-          - MetricIntervalLowerBound: 0
-            ScalingAdjustment: 200
 
   ECSTaskExecutionRole:
     Type: AWS::IAM::Role
@@ -512,30 +457,31 @@ Resources:
                   ]
                 Resource: "*"
 
-  AutoscalingRole:
-    Type: AWS::IAM::Role
+  ECSCodeDeployRole:
+    Type: AWS:IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Statement:
           - Effect: Allow
             Principal:
-              Service: [application-autoscaling.amazonaws.com]
+              Service: [codedeploy.amazonaws.com]
             Action: ["sts:AssumeRole"]
       Path: /
-      Policies:
-        - PolicyName: service-autoscaling
-          PolicyDocument:
-            Statement:
-              - Effect: Allow
-                Action:
-                  [
-                    "application-autoscaling:*",
-                    "cloudwatch:DescribeAlarms",
-                    "cloudwatch:PutMetricAlarm",
-                    "ecs:DescribeServices",
-                    "ecs:UpdateService",
-                  ]
-                Resource: "*"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS
+
+  ECSCodeDeployRole:
+    Type: AWS:IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [codedeploy.amazonaws.com]
+            Action: ["sts:AssumeRole"]
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS
 
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -543,9 +489,61 @@ Resources:
       Path: /
       Roles: [!Ref "EC2Role"]
 
+  # Security groups
+  # Security Group for ALB
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: sample-alb-sg
+      GroupDescription: ALB Security Group
+      VpcId: !Ref "VPC"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "80"
+          ToPort: "80"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "443"
+          ToPort: "443"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: sample-alb-sg
+
+  # Security Group for ECS
+  EcsSecurityGroup:
+    DependsOn: AlbSecurityGroup
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: sample-ecs-sg
+      GroupDescription: ECS Security Group
+      VpcId: !Ref "VPC"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "80"
+          ToPort: "80"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "22"
+          ToPort: "22"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "31000"
+          ToPort: "61000"
+          SourceSecurityGroupId: !Ref "AlbSecurityGroup"
+      Tags:
+        - Key: Name
+          Value: sample-ecs-sg
+
+  CloudwatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join ["-", [ECSLogGroup, !Ref "AWS::StackName"]]
+      RetentionInDays: 14
+
 Outputs:
   ecsservice:
-    Value: !Ref "service"
+    Value: !Ref "ECSService"
   ecscluster:
     Value: !Ref "ECSCluster"
   ECSALB:
