@@ -30,6 +30,16 @@ Parameters:
     Default: temp-kp
     Description: temp-kp
 
+  Project:
+    Type: String
+    Default: sample
+    Description: sample
+
+  Environment:
+    Type: String
+    Default: dev
+    Description: dev
+
   # VpcId:
   #   Type: AWS::EC2::VPC::Id
   #   Default:
@@ -87,7 +97,7 @@ Resources:
       EnableDnsHostnames: false
       Tags:
         - Key: Name
-          Value: sample-vpc
+          Value: !Sub ${Project}-${Environment}-vpc
 
   PublicSubnet1:
     Type: AWS::EC2::Subnet
@@ -100,7 +110,7 @@ Resources:
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-public-subnet-1
+          Value: !Sub ${Project}-${Environment}-public-subnet-1
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
@@ -113,7 +123,7 @@ Resources:
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-public-subnet-2
+          Value: !Sub ${Project}-${Environment}-public-subnet-2
 
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
@@ -126,7 +136,7 @@ Resources:
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-private-subnet-1
+          Value: !Sub ${Project}-${Environment}-private-subnet-1
 
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
@@ -139,7 +149,7 @@ Resources:
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-private-subnet-2
+          Value: !Sub ${Project}-${Environment}-private-subnet-2
 
   # Internet Gateway
   InternetGateway:
@@ -147,7 +157,7 @@ Resources:
     Properties:
       Tags:
         - Key: Name
-          Value: sample-igw
+          Value: !Sub ${Project}-${Environment}-igw
 
   InternetGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -163,7 +173,7 @@ Resources:
       Domain: vpc
       Tags:
         - Key: Name
-          Value: sample-elastic-ip
+          Value: !Sub ${Project}-${Environment}-elastic-ip
 
   NatGateway1:
     Type: AWS::EC2::NatGateway
@@ -172,7 +182,7 @@ Resources:
       SubnetId: !Ref "PublicSubnet1"
       Tags:
         - Key: Name
-          Value: sample-nat
+          Value: !Sub ${Project}-${Environment}-nat
 
   # Public Route Table
   PublicRouteTable:
@@ -181,7 +191,7 @@ Resources:
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-public-route-table
+          Value: !Sub ${Project}-${Environment}-public-route-table
 
   PublicInternetRoute:
     Type: AWS::EC2::Route
@@ -209,7 +219,7 @@ Resources:
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-private-route-table
+          Value: !Sub ${Project}-${Environment}-private-route-table
 
   PrivateNatRoute:
     Type: AWS::EC2::Route
@@ -234,18 +244,18 @@ Resources:
   ECSCluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: sample-cluster
+      ClusterName: !Sub ${Project}-${Environment}-cluster
 
   # Security Group for ALB
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: sample-alb-sg
+      GroupName: !Sub ${Project}-${Environment}-alb-sg
       GroupDescription: ALB Security Group
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-alb-sg
+          Value: !Sub ${Project}-${Environment}-alb-sg
 
   AlbSecurityGroupHTTPinbound:
     Type: AWS::EC2::SecurityGroupIngress
@@ -269,12 +279,12 @@ Resources:
   EcsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: sample-ecs-sg
+      GroupName: !Sub ${Project}-${Environment}-ecs-sg
       GroupDescription: ECS Security Group
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-ecs-sg
+          Value: !Sub ${Project}-${Environment}-ecs-sg
 
   EcsSecurityGroupHTTPinbound:
     Type: AWS::EC2::SecurityGroupIngress
@@ -312,7 +322,7 @@ Resources:
   taskdefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: sample-task-definition
+      Family: !Sub ${Project}-${Environment}-task-definition
       ContainerDefinitions:
         - Name: samplecontainer
           Essential: "true"
@@ -328,7 +338,7 @@ Resources:
   ECSALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: sample-alb
+      Name: !Sub ${Project}-${Environment}-alb
       Scheme: internet-facing
       LoadBalancerAttributes:
         - Key: idle_timeout.timeout_seconds
@@ -371,7 +381,7 @@ Resources:
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
-      Name: sample-ecs-tg
+      Name: !Sub ${Project}-${Environment}-ecs-tg
       Port: 80
       Protocol: HTTP
       UnhealthyThresholdCount: 2
@@ -407,7 +417,7 @@ Resources:
     Type: AWS::ECS::Service
     DependsOn: ALBListener
     Properties:
-      ServiceName: sample-ecs-service
+      ServiceName: !Sub ${Project}-${Environment}-ecs-service
       Cluster: !Ref "ECSCluster"
       DesiredCount: !Ref DesiredTaskCount
       LoadBalancers:

@@ -29,6 +29,16 @@ Parameters:
     Type: AWS::EC2::KeyPair::KeyName
     Default: temp-kp
     Description: temp-kp
+  
+  Project:
+    Type: String
+    Default: sample
+    Description: sample
+
+  Environment:
+    Type: String
+    Default: dev
+    Description: dev
 
   # VpcId:
   #   Type: AWS::EC2::VPC::Id
@@ -87,7 +97,7 @@ Resources:
       EnableDnsHostnames: false
       Tags:
         - Key: Name
-          Value: sample-vpc
+          Value: !Sub ${Project}-${Environment}-vpc
 
   PublicSubnet1:
     Type: AWS::EC2::Subnet
@@ -100,7 +110,7 @@ Resources:
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-public-subnet-1
+          Value: !Sub ${Project}-${Environment}-public-subnet-1
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
@@ -113,7 +123,7 @@ Resources:
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-public-subnet-2
+          Value: !Sub ${Project}-${Environment}-public-subnet-2
 
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
@@ -126,7 +136,7 @@ Resources:
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-private-subnet-1
+          Value: !Sub ${Project}-${Environment}-private-subnet-1
 
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
@@ -139,7 +149,7 @@ Resources:
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-private-subnet-2
+          Value: !Sub ${Project}-${Environment}-private-subnet-2
 
   # Internet Gateway
   InternetGateway:
@@ -147,7 +157,7 @@ Resources:
     Properties:
       Tags:
         - Key: Name
-          Value: sample-igw
+          Value: !Sub ${Project}-${Environment}-igw
 
   InternetGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -163,7 +173,7 @@ Resources:
       Domain: vpc
       Tags:
         - Key: Name
-          Value: sample-elastic-ip
+          Value: !Sub ${Project}-${Environment}-elastic-ip
 
   NatGateway1:
     Type: AWS::EC2::NatGateway
@@ -172,7 +182,7 @@ Resources:
       SubnetId: !Ref "PublicSubnet1"
       Tags:
         - Key: Name
-          Value: sample-nat
+          Value: !Sub ${Project}-${Environment}-nat
 
   # Public Route Table
   PublicRouteTable:
@@ -181,7 +191,7 @@ Resources:
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-public-route-table
+          Value: !Sub ${Project}-${Environment}-public-route-table
 
   PublicInternetRoute:
     Type: AWS::EC2::Route
@@ -209,7 +219,7 @@ Resources:
       VpcId: !Ref "VPC"
       Tags:
         - Key: Name
-          Value: sample-private-route-table
+          Value: !Sub ${Project}-${Environment}-private-route-table
 
   PrivateNatRoute:
     Type: AWS::EC2::Route
@@ -234,7 +244,7 @@ Resources:
   ECSALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: sample-alb
+      Name: !Sub ${Project}-${Environment}-alb
       Scheme: internet-facing
       LoadBalancerAttributes:
         - Key: idle_timeout.timeout_seconds
@@ -290,7 +300,7 @@ Resources:
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
-      Name: sample-blue-tg
+      Name: !Sub ${Project}-${Environment}-blue-tg
       Port: 80
       Protocol: HTTP
       UnhealthyThresholdCount: 2
@@ -306,7 +316,7 @@ Resources:
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
-      Name: sample-green-tg
+      Name: !Sub ${Project}-${Environment}-green-tg
       Port: 80
       Protocol: HTTP
       UnhealthyThresholdCount: 2
@@ -315,7 +325,7 @@ Resources:
   taskdefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: sample-task-definition
+      Family: !Sub ${Project}-${Environment}-task-definition
       ContainerDefinitions:
         - Name: !Ref "ContainerName"
           Essential: "true"
@@ -335,7 +345,7 @@ Resources:
   ECSCluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: sample-cluster
+      ClusterName: !Sub ${Project}-${Environment}-cluster
 
   ECSService:
     Type: AWS::ECS::Service
@@ -343,7 +353,7 @@ Resources:
       - ALBListener
       - ECSAutoScalingGroup
     Properties:
-      ServiceName: sample-ecs-service
+      ServiceName: !Sub ${Project}-${Environment}-ecs-service
       Cluster: !Ref "ECSCluster"
       DesiredCount: !Ref DesiredTaskCount
       DeploymentController:
@@ -358,7 +368,7 @@ Resources:
   CodeDeployApplication:
     Type: AWS::CodeDeploy::Application
     Properties:
-      ApplicationName: sample-application
+      ApplicationName: !Sub ${Project}-${Environment}-application
       ComputePlatform: ECS
 
   ECSAutoScalingGroup:
@@ -494,7 +504,7 @@ Resources:
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: sample-alb-sg
+      GroupName: !Sub ${Project}-${Environment}-alb-sg
       GroupDescription: ALB Security Group
       VpcId: !Ref "VPC"
       SecurityGroupIngress:
@@ -508,14 +518,14 @@ Resources:
           CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
-          Value: sample-alb-sg
+          Value: !Sub ${Project}-${Environment}-alb-sg
 
   # Security Group for ECS
   EcsSecurityGroup:
     DependsOn: AlbSecurityGroup
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: sample-ecs-sg
+      GroupName: !Sub ${Project}-${Environment}-ecs-sg
       GroupDescription: ECS Security Group
       VpcId: !Ref "VPC"
       SecurityGroupIngress:
@@ -533,7 +543,7 @@ Resources:
           SourceSecurityGroupId: !Ref "AlbSecurityGroup"
       Tags:
         - Key: Name
-          Value: sample-ecs-sg
+          Value: !Sub ${Project}-${Environment}-ecs-sg
 
   CloudwatchLogsGroup:
     Type: AWS::Logs::LogGroup
