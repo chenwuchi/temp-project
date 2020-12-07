@@ -37,8 +37,8 @@ Parameters:
 
   Environment:
     Type: String
-    Default: dev
-    Description: dev
+    Default: prod
+    Description: prod
 
   # VpcId:
   #   Type: AWS::EC2::VPC::Id
