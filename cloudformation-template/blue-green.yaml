@@ -1,34 +1,34 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Parameters:
   VpcCIDR:
-    Description: 192.168.0.0/16
+    Description: 10.0.0.0/16
     Type: String
-    Default: 192.168.0.0/16
+    Default: 10.0.0.0/16
 
   PublicSubnet1CIDR:
-    Description: 192.168.0.0/24
+    Description: 10.0.0.0/24
     Type: String
-    Default: 192.168.0.0/24
+    Default: 10.0.0.0/24
 
   PublicSubnet2CIDR:
-    Description: 192.168.1.0/24
+    Description: 10.0.1.0/24
     Type: String
-    Default: 192.168.1.0/24
+    Default: 10.0.1.0/24
 
   PrivateSubnet1CIDR:
-    Description: 192.168.2.0/24
+    Description: 10.0.2.0/24
     Type: String
-    Default: 192.168.2.0/24
+    Default: 10.0.2.0/24
 
   PrivateSubnet2CIDR:
-    Description: 192.168.3.0/24
+    Description: 10.0.3.0/24
     Type: String
-    Default: 192.168.3.0/24
+    Default: 10.0.3.0/24
 
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
-    Default: temp-kp
-    Description: temp-kp
+    Default: psv-keypair
+    Description: psv-keypair
   
   Project:
     Type: String
@@ -64,8 +64,8 @@ Parameters:
 
   ImagePath:
     Type: String
-    Default: 359170549571.dkr.ecr.ap-southeast-1.amazonaws.com/sample
-    Description: 359170549571.dkr.ecr.ap-southeast-1.amazonaws.com/sample
+    Default: 358753978737.dkr.ecr.ap-southeast-1.amazonaws.com/prod/sample
+    Description: 358753978737.dkr.ecr.ap-southeast-1.amazonaws.com/prod/sample
 
   ContainerName:
     Type: String

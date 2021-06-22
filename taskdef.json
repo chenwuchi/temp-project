@@ -1,6 +1,6 @@
 {
   "ipcMode": null,
-  "executionRoleArn": "arn:aws:iam::359170549571:role/blue-green-stack-ECSTaskExecutionRole-5I3WJQ3DRGFU",
+  "executionRoleArn": "arn:aws:iam::358753978737:role/blue-green-stack-ECSTaskExecutionRole-1E4CAR5A40Y98",
   "containerDefinitions": [
     {
       "dnsSearchDomains": [],
@@ -29,7 +29,7 @@
       "memoryReservation": 100,
       "volumesFrom": [],
       "stopTimeout": null,
-      "image": "359170549571.dkr.ecr.ap-southeast-1.amazonaws.com/sample",
+      "image": "358753978737.dkr.ecr.ap-southeast-1.amazonaws.com/prod/sample",
       "startTimeout": null,
       "firelensConfiguration": null,
       "dependsOn": null,
@@ -51,11 +51,9 @@
   ],
   "placementConstraints": [],
   "memory": null,
-  "taskRoleArn": "arn:aws:iam::359170549571:role/blue-green-stack-ECSTaskExecutionRole-5I3WJQ3DRGFU",
-  "compatibilities": [
-    "EC2"
-  ],
-  "family": "sample-dev-task-definition",
+  "taskRoleArn": "arn:aws:iam::358753978737:role/blue-green-stack-ECSTaskExecutionRole-1E4CAR5A40Y98",
+  "compatibilities": ["EXTERNAL", "EC2"],
+  "family": "sample-prod-task-definition",
   "requiresAttributes": [
     {
       "targetId": null,
@@ -95,9 +93,7 @@
     }
   ],
   "pidMode": null,
-  "requiresCompatibilities": [
-    "EC2"
-  ],
+  "requiresCompatibilities": ["EC2"],
   "networkMode": null,
   "cpu": null,
   "status": "ACTIVE",
